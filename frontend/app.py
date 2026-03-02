@@ -1,34 +1,69 @@
 import streamlit as st
 import pandas as pd
 
+st.set_page_config(page_title="SHL Assessment Recommender")
+
 st.title("SHL Assessment Recommendation System")
 
+st.markdown(
+    "Enter a **Job Role or Description** and receive the most relevant SHL assessments."
+)
+
+# Load dataset
 data = pd.read_excel("Gen_AI Dataset.xlsx", sheet_name="Train-Set")
 
 records = []
 
 for _, row in data.iterrows():
-    query = str(row["Query"])
+    job_description = str(row["Query"])
     urls = str(row["Assessment_url"]).split(",")
 
     for url in urls:
         records.append({
-            "query": query.lower(),
+            "job": job_description,
+            "query": job_description.lower(),
             "url": url.strip()
         })
 
-user_query = st.text_area("Enter Job Description")
+# User Input
+user_query = st.text_area("Job Description", height=150)
 
-if st.button("Recommend"):
+if st.button("Get Recommendations"):
 
-    q = user_query.lower()
-    results = []
+    if not user_query.strip():
+        st.warning("Please enter a job description.")
+    else:
 
-    for item in records:
-        if any(word in item["query"] for word in q.split()):
-            results.append(item["url"])
+        st.subheader("Entered Job Description")
+        st.write(user_query)
 
-    st.subheader("Recommended Assessments")
+        q = user_query.lower()
+        results = []
 
-    for r in results[:10]:
-        st.write(r)
+        for item in records:
+            if any(word in item["query"] for word in q.split()):
+                results.append(item)
+
+        st.subheader("Recommended SHL Assessments")
+
+        if results:
+
+            for idx, rec in enumerate(results[:10], 1):
+
+                st.markdown("---")
+
+                # Assessment Title
+                st.markdown(f"### {idx}. {rec['job']}")
+
+                # Role Description
+                st.markdown(
+                    f"**Role / Job Description:** {rec['job']}"
+                )
+
+                # Clickable Link
+                st.markdown(
+                    f"🔗 [Open SHL Assessment]({rec['url']})"
+                )
+
+        else:
+            st.info("No matching assessments found.")
