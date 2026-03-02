@@ -1,79 +1,24 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import faiss
-import pickle
-import numpy as np
-import json
-import os
-from sentence_transformers import SentenceTransformer
+import pandas as pd
 
 app = FastAPI()
 
-model = None
-index = None
-metadata = None
+print("Loading dataset...")
 
+data = pd.read_excel("Gen_AI Dataset.xlsx", sheet_name="Train-Set")
 
-def build_index_if_missing():
-    if not os.path.exists("data"):
-        os.makedirs("data")
+records = []
 
-    if not os.path.exists("data/faiss.index"):
+for _, row in data.iterrows():
+    query = str(row["Query"])
+    urls = str(row["Assessment_url"]).split(",")
 
-        print("Index not found. Rebuilding...")
-
-        with open("Gen_AI Dataset.xlsx", "rb"):
-            pass
-
-        import pandas as pd
-        train_df = pd.read_excel("Gen_AI Dataset.xlsx", sheet_name="Train-Set")
-
-        records = []
-
-        for _, row in train_df.iterrows():
-            query = str(row["Query"])
-            urls = str(row["Assessment_url"]).split(",")
-
-            for url in urls:
-                records.append({
-                    "name": query,
-                    "url": url.strip(),
-                    "text": query
-                })
-
-        texts = [item["text"] for item in records]
-
-        global model
-        if model is None:
-            model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
-
-        embeddings = model.encode(texts)
-        embeddings = np.array(embeddings).astype("float32")
-
-        dimension = embeddings.shape[1]
-        idx = faiss.IndexFlatL2(dimension)
-        idx.add(embeddings)
-
-        faiss.write_index(idx, "data/faiss.index")
-
-        with open("data/metadata.pkl", "wb") as f:
-            pickle.dump(records, f)
-
-
-def load_resources():
-    global model, index, metadata
-
-    if model is None:
-        model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
-
-    build_index_if_missing()
-
-    if index is None:
-        index = faiss.read_index("data/faiss.index")
-
-    if metadata is None:
-        with open("data/metadata.pkl", "rb") as f:
-            metadata = pickle.load(f)
+    for url in urls:
+        records.append({
+            "query": query.lower(),
+            "url": url.strip()
+        })
 
 
 class QueryRequest(BaseModel):
@@ -82,7 +27,7 @@ class QueryRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "API running"}
+    return {"message": "SHL API running"}
 
 
 @app.get("/health")
@@ -93,20 +38,14 @@ def health():
 @app.post("/recommend")
 def recommend(request: QueryRequest):
 
-    load_resources()
-
-    query_embedding = model.encode([request.query])
-    query_embedding = np.array(query_embedding).astype("float32")
-
-    distances, indices = index.search(query_embedding, 10)
-
+    q = request.query.lower()
     results = []
 
-    for idx in indices[0]:
-        item = metadata[idx]
-        results.append({
-            "assessment_name": item["name"],
-            "assessment_url": item["url"]
-        })
+    for item in records:
+        if any(word in item["query"] for word in q.split()):
+            results.append({
+                "assessment_name": item["query"],
+                "assessment_url": item["url"]
+            })
 
-    return {"recommendations": results}
+    return {"recommendations": results[:10]}
