@@ -1,27 +1,34 @@
 import streamlit as st
-import requests
-
-API_URL = "http://127.0.0.1:8000/recommend"
+import pandas as pd
 
 st.title("SHL Assessment Recommendation System")
 
-query = st.text_area("Enter Job Description")
+data = pd.read_excel("Gen_AI Dataset.xlsx", sheet_name="Train-Set")
 
-if st.button("Get Recommendations"):
+records = []
 
-    if query.strip() == "":
-        st.warning("Please enter a query.")
-    else:
-        response = requests.post(
-            API_URL,
-            json={"query": query}
-        )
+for _, row in data.iterrows():
+    query = str(row["Query"])
+    urls = str(row["Assessment_url"]).split(",")
 
-        data = response.json()
+    for url in urls:
+        records.append({
+            "query": query.lower(),
+            "url": url.strip()
+        })
 
-        st.subheader("Recommended Assessments")
+user_query = st.text_area("Enter Job Description")
 
-        for r in data["recommendations"]:
-            st.markdown(
-                f"- [{r['assessment_name']}]({r['assessment_url']})"
-            )
+if st.button("Recommend"):
+
+    q = user_query.lower()
+    results = []
+
+    for item in records:
+        if any(word in item["query"] for word in q.split()):
+            results.append(item["url"])
+
+    st.subheader("Recommended Assessments")
+
+    for r in results[:10]:
+        st.write(r)

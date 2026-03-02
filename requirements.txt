@@ -1,11 +1,3 @@
-fastapi
-uvicorn
-sentence-transformers
-faiss-cpu
-numpy
-pandas
-requests
 streamlit
+pandas
 openpyxl
-tqdm
-beautifulsoup4
